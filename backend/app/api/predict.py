@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.api.labels import upsert_label
-from app.core.paths import ext_of, rel_posix, safe_resolve
+from app.core.paths import ext_of, is_inside, rel_posix, safe_resolve
 from app.db.session import connect
 from app.errors import AppError
 
@@ -41,6 +41,7 @@ def predict_folder(request: Request, body: FolderIn | None = None) -> dict:
         rel_posix(c.settings.docs_root, p)
         for p in sorted(root.rglob("*"))
         if p.is_file()
+        and is_inside(root, p)
         and ext_of(p.name) in c.settings.extensions
         and not any(x.startswith(".") for x in p.relative_to(root).parts)
     ]

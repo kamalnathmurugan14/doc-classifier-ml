@@ -159,3 +159,16 @@ def test_model_card_markdown(trained):
     assert (
         r.status_code == 200 and r.text.startswith("# Model card") and "| Invoice |" in r.text and "Macro F1" in r.text
     )
+
+
+def test_predict_folder_skips_symlinks_that_escape_docs_root(trained, docs, tmp_path):
+    client, _ = trained
+    outside = tmp_path / "outside.txt"
+    outside.write_text("INVOICE total due $5", encoding="utf-8")
+    (docs / "_synthetic" / "invoice" / "evil_link.txt").symlink_to(outside)
+    r = client.post("/predict-folder", json={"path": "_synthetic/invoice"})
+    assert r.status_code == 202 and r.json()["total"] == 12  # the link is not counted
+    client.app.state.container.folder_jobs[r.json()["job_id"]]["thread"].join()
+    assert all(
+        "evil_link" not in x["rel_path"] for x in client.get(f"/predict-folder/{r.json()['job_id']}").json()["results"]
+    )
